@@ -1,6 +1,5 @@
 from email import message_from_bytes
 from imaplib import IMAP4_SSL
-from utils import read_mail_details
 
 def get_unseen_emails(email_address, password, server):
     with IMAP4_SSL(server) as mail_connection:

@@ -1,27 +1,34 @@
 import logging
 import time
 import os
-from utils import read_mail_details
+from utils import get_email_address, get_email_password, get_email_server, get_log_to_file, get_log_file_name, get_log_level, get_sleep_time, get_printer_name
 from reading_emails_scripts import get_mail_attachments, get_unseen_emails
 
-#TODO: Put sleep time and logging settings to env
-sleep_s = 30
 attachment_count = 0
 received_messages = False
-log_to_file = True
-log_level = logging.INFO
 
 if __name__ == "__main__":
 
-    if log_to_file:
-        #TODO: Make log file name configurable
-        logging.basicConfig(filename='myMailPrinter.log', format='%(levelname)s (%(asctime)s): %(message)s', datefmt='%d.%m.%Y %H:%M:%S', level=log_level)
+    #First starting logger
+    if get_log_to_file():
+        print('Starting Mail to Print Service. Events are logged to ' + get_log_file_name())
+        logging.basicConfig(filename=get_log_file_name(), format='%(levelname)s (%(asctime)s): %(message)s', datefmt='%d.%m.%Y %H:%M:%S', level=get_log_level())
     else:
-        logging.basicConfig(format='%(levelname)s (%(asctime)s): %(message)s', datefmt='%d.%m.%Y %H:%M:%S', level=log_level)
+        logging.basicConfig(format='%(levelname)s (%(asctime)s): %(message)s', datefmt='%d.%m.%Y %H:%M:%S', level=get_log_level())
+        logging.warning('Logging to a file is disabled. Instead, it\'s printed to the console.')
+    
     logging.info('Started Mail to Print Service')
 
-    logging.debug('Read mail server details from .env')
-    email_address, password, server = read_mail_details()
+    #Loading rest of the environment
+    email_address = get_email_address()
+    logging.info('Loaded email address: ' + email_address)
+    password = get_email_password()
+    server = get_email_server()
+    logging.debug('Loaded mail server address: ' + server)
+    sleep_time = get_sleep_time()
+    logging.debug('Loaded sleep time: ' + str(sleep_time) + ' sec')
+    printer_name = get_printer_name()
+    logging.info('Loaded printer name: ' + printer_name)
 
     while(True):
         received_messages = False
@@ -62,8 +69,7 @@ if __name__ == "__main__":
             files = os.listdir('./attachment-cache/')
 
             for pdf in files:
-                #TODO: Put printer name into env
-                os.system('lp -d HP_Color_LaserJet_MFP_M281fdw_605953_ ./attachment-cache/' + pdf)
+                os.system('lp -d ' + printer_name + ' ./attachment-cache/' + pdf)
         
-        logging.debug('Going to sleep for ' + str(sleep_s) + ' seconds')
-        time.sleep(sleep_s)
+        logging.debug('Going to sleep for ' + str(sleep_time) + ' seconds')
+        time.sleep(sleep_time)
