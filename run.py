@@ -1,6 +1,7 @@
 import logging
 import time
 import os
+from imaplib import IMAP4
 from utils import get_email_address, get_email_password, get_email_server, get_log_to_file, get_log_file_name, get_log_level, get_sleep_time, get_printer_name
 from reading_emails_scripts import get_mail_attachments, get_unseen_emails
 
@@ -37,39 +38,52 @@ if __name__ == "__main__":
             os.remove(os.path.join('./attachment-cache/', pdf))
 
         logging.debug('Checking E-mails')
-        messages = get_unseen_emails(email_address, password, server)
+        try:
+            messages = get_unseen_emails(email_address, password, server)
 
-        if messages:
-            for message_id, message in enumerate(messages):
-                attachment_count = 0
-                received_messages = True
-                logging.debug('Checking for attachments with ending \'.pdf\'.')
-                attachments_pdf = get_mail_attachments(message,
-                                                lambda x: x.endswith('.pdf'))
-                for attachment_id, attachment in enumerate(attachments_pdf):
-                    if attachment:
-                        attachment_count = attachment_count + 1
-                        with open('./attachment-cache/{}'.format(attachment[0]), 'wb') as file:
-                            file.write(attachment[1])
-                        logging.info('Message #' + str(message_id) + ' has a PDF attachment (' + str(attachment_id) + ')')
+            if messages:
+                for message_id, message in enumerate(messages):
+                    attachment_count = 0
+                    received_messages = True
+                    logging.debug('Checking for attachments with ending \'.pdf\'.')
+                    attachments_pdf = get_mail_attachments(message,
+                                                    lambda x: x.endswith('.pdf'))
+                    for attachment_id, attachment in enumerate(attachments_pdf):
+                        if attachment:
+                            attachment_count = attachment_count + 1
+                            with open('./attachment-cache/{}'.format(attachment[0]), 'wb') as file:
+                                file.write(attachment[1])
+                            logging.info('Message #' + str(message_id) + ' has a PDF attachment (' + str(attachment_id) + ')')
 
-                logging.debug('Checking for attachments with ending \'.PDF\'.')
-                attachments_PDF = get_mail_attachments(message,
-                                lambda x: x.endswith('.PDF'))
-                for attachment_id, attachment in enumerate(attachments_PDF):
-                    if attachment:
-                        with open('./attachment-cache/{}'.format(attachment[0]), 'wb') as file:
-                            file.write(attachment[1])
-                        logging.info('Message #' + str(message_id) + ' has a PDF attachment (' + str(attachment_count + attachment_id) + ')')
+                    logging.debug('Checking for attachments with ending \'.PDF\'.')
+                    attachments_PDF = get_mail_attachments(message,
+                                    lambda x: x.endswith('.PDF'))
+                    for attachment_id, attachment in enumerate(attachments_PDF):
+                        if attachment:
+                            with open('./attachment-cache/{}'.format(attachment[0]), 'wb') as file:
+                                file.write(attachment[1])
+                            logging.info('Message #' + str(message_id) + ' has a PDF attachment (' + str(attachment_count + attachment_id) + ')')
         
+        # In case something went wrong with the IMAP library or a general OS error occured (e.g. no internet connection)
+        except IMAP4.error as error:
+            logging.error('IMAP Error while checking unseen mails from server: \"{}\"'.format(error))
+        except OSError as error:
+            logging.error('OSError while checking unseen mails from server: \"{}\"'.format(error))
+
+        # If we received messages, we can print them
         if received_messages:
-            num_files = len([f for f in os.listdir('./attachment-cache/')if os.path.isfile(os.path.join('./attachment-cache/', f))])
-            logging.info('Printing ' + str(num_files) + ' files')
+            try:
+                num_files = len([f for f in os.listdir('./attachment-cache/')if os.path.isfile(os.path.join('./attachment-cache/', f))])
+                logging.info('Printing ' + str(num_files) + ' files')
 
-            files = os.listdir('./attachment-cache/')
+                files = os.listdir('./attachment-cache/')
 
-            for pdf in files:
-                os.system('lp -d ' + printer_name + ' ./attachment-cache/' + pdf)
-        
+                for pdf in files:
+                    os.system('lp -d ' + printer_name + ' ./attachment-cache/' + pdf)
+            
+            except OSError as error:
+                logging.error('OSError while printing received messages: \"{}\"'.format(error))
+
+        # Sleep until next check
         logging.debug('Going to sleep for ' + str(sleep_time) + ' seconds')
         time.sleep(sleep_time)
